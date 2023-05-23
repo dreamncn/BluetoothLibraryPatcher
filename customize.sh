@@ -2,14 +2,13 @@
 # by 3arthur6
 
 check() {
-  samsung=`grep -Eqw "androidboot.odin_download|androidboot.warranty_bit|sec_debug" /proc/cmdline && echo 'true' || echo 'false'`
-  if $BOOTMODE ; then
-    ui_print "- Magisk Manager installation"
-    sys=`magisk --path`/.magisk/mirror/system
-  else
-    ui_print "- Recovery installation"
-    sys=`dirname $(find / -mindepth 2 -maxdepth 3 -path "*system/build.prop"|head -1)`
-  fi
+if ! $KSU ; then
+  ui_print "- Only for KernelSU，you can use magisk with https://github.com/3arthur6/BluetoothLibraryPatcher."
+  abort
+fi
+ ui_print "- KernelSU installation"
+ sys=/system
+
   if ! $samsung ; then
     ui_print "- Only for Samsung devices!"
     abort
@@ -70,36 +69,20 @@ patchlib() {
   fi
 }
 
-otasurvival() {
-  ui_print "- Creating OTA survival service"
-  cp -f $ZIPFILE $MODPATH/module.zip
-  if [[ $API -le 32 ]] ; then
-    sed -i "s@previouslibmd5sum_tmp@previouslibmd5sum=`md5sum $lib|cut -d ' ' -f1`@" $MODPATH/service.sh
-    sed -i 's@post_path@lib*|grep -E "\\/(libbluetooth|bluetooth\\.default)\\.so$"|tail -n 1@' $MODPATH/service.sh
-  else
-    sed -i "s@previouslibmd5sum_tmp@previouslibmd5sum=`md5sum $(magisk --path)/.magisk/mirror/system/apex/com.android.btservices.apex|cut -d ' ' -f1`@" $MODPATH/service.sh
-    sed -i 's@post_path@apex/com.android.btservices.apex@' $MODPATH/service.sh
-  fi
-}
-
 patchmanifest() {
-  if [[ $MAGISK_VER == *-delta ]] && [[ -d `magisk --path`/.magisk/mirror/early-mount ]] ; then
-    ui_print "- Magisk Delta fork detected"
     ui_print "- Applying gear watch fix"
-    mkdir -p `magisk --path`/.magisk/mirror/early-mount/system/vendor/vintf/manifest
+    mkdir -p /system/vendor/vintf/manifest
     for i in `grep -lr 'security.wsm' /vendor/etc/vintf`
     do
       if [[ ! -z $i ]] ; then
-        rm -f `magisk --path`/.magisk/mirror/early-mount/system$i
-        cp -af $i `magisk --path`/.magisk/mirror/early-mount/system$i
-        sed -i $((`awk '/security.wsm/ {print FNR}' $i`-1)),/<\/hal>/d `magisk --path`/.magisk/mirror/early-mount/system$i
+        rm -f $MODPATH/system$i
+        cp -af $i $MODPATH/system$i
+        sed -i $((`awk '/security.wsm/ {print FNR}' $i`-1)),/<\/hal>/d $MODPATH/system$i
       fi
     done
-  fi
 }
 
 check
 search
 patchlib
-otasurvival
 patchmanifest
